@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - LOG_SECURITY_EVENTS=${LOG_SECURITY_EVENTS:-true}
+      - MONITORING_ENABLED=${MONITORING_ENABLED:-true}
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
